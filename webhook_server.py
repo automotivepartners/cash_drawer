@@ -11,12 +11,19 @@ command_queue = []
 def tekmetric_webhook():
     """Receives webhooks from Tekmetric"""
     try:
+        # Log raw request for debugging
+        print(f"[{datetime.now()}] ===== WEBHOOK RECEIVED =====")
+        print(f"Headers: {dict(request.headers)}")
+        print(f"Raw data: {request.get_data(as_text=True)}")
+        
         data = request.json
-        print(f"[{datetime.now()}] Received webhook: {json.dumps(data)}")
+        print(f"Parsed JSON: {json.dumps(data, indent=2)}")
         
         # Check if paymentType.code is "CASH"
         if 'paymentType' in data:
             payment_type = data['paymentType']
+            print(f"Found paymentType: {payment_type}")
+            
             if payment_type.get('code') == 'CASH':
                 # Add command to queue
                 command_queue.append({
@@ -24,12 +31,20 @@ def tekmetric_webhook():
                     'command': '1',
                     'processed': False
                 })
-                print(f"[{datetime.now()}] CASH payment detected - command queued")
+                print(f"[{datetime.now()}] ✓ CASH PAYMENT DETECTED - COMMAND QUEUED!")
+                print(f"Queue now has {len(command_queue)} items")
+            else:
+                print(f"Payment code is '{payment_type.get('code')}', not CASH")
+        else:
+            print("WARNING: No 'paymentType' field found in webhook data")
         
-        return jsonify({'status': 'success'}), 200
+        print(f"===== END WEBHOOK =====\n")
+        return jsonify({'status': 'success', 'received': True}), 200
     
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/poll', methods=['GET'])
