@@ -1,9 +1,3 @@
-# ============================================
-# PART 1: Cloud Webhook Receiver (Flask)
-# Deploy this to Heroku, Railway, or any cloud platform
-# File: webhook_server.py
-# ============================================
-
 from flask import Flask, request, jsonify
 from datetime import datetime
 import json
@@ -72,5 +66,20 @@ def health_check():
         'queue_size': len(command_queue)
     }), 200
 
+@app.route('/', methods=['GET'])
+def home():
+    """Root endpoint"""
+    return jsonify({
+        'service': 'Tekmetric Webhook Receiver',
+        'status': 'running',
+        'endpoints': {
+            'webhook': '/webhook (POST)',
+            'poll': '/poll (GET)',
+            'health': '/health (GET)'
+        }
+    }), 200
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
