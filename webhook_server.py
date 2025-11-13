@@ -19,33 +19,56 @@ def tekmetric_webhook():
         data = request.json
         print(f"Parsed JSON: {json.dumps(data, indent=2)}")
         
-        # Check if paymentType.code is "CASH"
+        # Check if paymentType exists anywhere in the data
+        payment_type = None
+        
+        # Try direct access first
         if 'paymentType' in data:
             payment_type = data['paymentType']
-            print(f"Found paymentType: {payment_type}")
+            print(f"Found paymentType at root level: {payment_type}")
+        
+        # Also check if it's nested in common webhook structures
+        elif 'data' in data and isinstance(data['data'], dict) and 'paymentType' in data['data']:
+            payment_type = data['data']['paymentType']
+            print(f"Found paymentType in data object: {payment_type}")
+        
+        # Check other common webhook structures
+        elif 'payload' in data and isinstance(data['payload'], dict) and 'paymentType' in data['payload']:
+            payment_type = data['payload']['paymentType']
+            print(f"Found paymentType in payload object: {payment_type}")
+        
+        if payment_type:
+            code = payment_type.get('code', '')
+            print(f"Payment code found: '{code}' (type: {type(code)})")
+            print(f"Comparing: '{code}' == 'CASH' ? {code == 'CASH'}")
+            print(f"Code upper: '{code.upper() if isinstance(code, str) else code}'")
             
-            if payment_type.get('code') == 'CASH':
+            # Check for CASH (case-insensitive)
+            if isinstance(code, str) and code.upper() == 'CASH':
                 # Add command to queue
                 command_queue.append({
                     'timestamp': datetime.now().isoformat(),
                     'command': '1',
                     'processed': False
                 })
-                print(f"[{datetime.now()}] ✓ CASH PAYMENT DETECTED - COMMAND QUEUED!")
+                print(f"[{datetime.now()}] ✓✓✓ CASH PAYMENT DETECTED - COMMAND QUEUED! ✓✓✓")
                 print(f"Queue now has {len(command_queue)} items")
+                return jsonify({'status': 'success', 'action': 'command_queued', 'queue_size': len(command_queue)}), 200
             else:
-                print(f"Payment code is '{payment_type.get('code')}', not CASH")
+                print(f"Payment code is '{code}', not CASH")
+                return jsonify({'status': 'success', 'action': 'ignored', 'reason': f'payment code is {code}'}), 200
         else:
-            print("WARNING: No 'paymentType' field found in webhook data")
+            print("WARNING: No 'paymentType' field found anywhere in webhook data")
+            print(f"Available top-level keys: {list(data.keys())}")
+            return jsonify({'status': 'success', 'action': 'ignored', 'reason': 'no paymentType found'}), 200
         
-        print(f"===== END WEBHOOK =====\n")
-        return jsonify({'status': 'success', 'received': True}), 200
-    
     except Exception as e:
         print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        print(f"===== END WEBHOOK =====\n")
 
 @app.route('/poll', methods=['GET'])
 def poll_commands():
